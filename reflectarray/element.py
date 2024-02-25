@@ -9,13 +9,20 @@ C = scipy.constants.c
 EPS_0 = scipy.constants.epsilon_0
 MU_0 = scipy.constants.mu_0
 
-class Patch:
+class Element:
     '''
-    Defines patch element for reflectarray construction.
+    Defines element for reflectarray construction.
+
+    args:
+        lattice_vectors: 1x3 or 2x3 array of lattice vectors (default: np.array([[0,1,0]]))
     '''
 
-    def __init__(self, alpha=None, filepath=None, f0=None, **kwargs):
+    def __init__(self, lattice_vectors=None, alpha=None, filepath=None, f0=None, **kwargs):
         self.quiet = kwargs.get('quiet', False)
+
+        self.lattice_vectors = lattice_vectors
+        if self.lattice_vectors is None:
+            self.lattice_vectors = np.array([[0,1,0]])
         
         self.f = kwargs.get('f', None)
         if self.f is None:
@@ -23,7 +30,6 @@ class Patch:
                 if not self.quiet:
                     print('No frequency vector provided, defaulting to 10 GHz')
             self.f = 10E9
-        self.W = kwargs.get('W', C / (2*self.f))
         
         if alpha is not None:
             self.alpha = alpha
@@ -71,5 +77,13 @@ class Patch:
                 axes[i].set_title('Imaginary')
             plt.tight_layout()
             
-
-
+class Patch(Element):
+    '''
+    Defines a ground-plane-backed patch element with magnetic dipole spacing W.
+    '''
+    def __init__(self, lattice_vectors=None, alpha=None, filepath=None, f0=None, **kwargs):
+        
+        super().__init__(lattice_vectors=lattice_vectors, alpha=alpha, filepath=filepath, f0=f0, **kwargs)
+        
+        self.element_type = 'patch'
+        self.W = kwargs.get('W', C / (2*self.f))
