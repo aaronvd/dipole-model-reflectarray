@@ -17,14 +17,14 @@ class Element:
         lattice_vectors: 1x3 or 2x3 array of lattice vectors (default: np.array([[0,1,0]]))
     '''
 
-    def __init__(self, lattice_vectors=None, alpha=None, filepath=None, f0=None, **kwargs):
+    def __init__(self, lattice_vectors=None, f=None, alpha=None, filepath=None, f0=None, **kwargs):
         self.quiet = kwargs.get('quiet', False)
 
         self.lattice_vectors = lattice_vectors
         if self.lattice_vectors is None:
             self.lattice_vectors = np.array([[0,1,0]])
         
-        self.f = kwargs.get('f', None)
+        self.f = f
         if self.f is None:
             if not self.quiet:
                 if not self.quiet:

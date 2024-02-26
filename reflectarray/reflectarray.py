@@ -110,10 +110,7 @@ class Reflectarray:
                 self.x, Psi = np.meshgrid(x, psi, indexing='ij')
                 self.y = R_cylinder * np.sin(Psi)
                 self.z = R_cylinder * np.cos(Psi)
-
-                rotation_matrix = np.stack((np.ones_like(Psi.flatten()), np.zeros_like(Psi.flatten()), np.zeros_like(Psi.flatten())), axis=1)[:,:,None]
-                rotation_matrix = np.concatenate((rotation_matrix, np.stack((np.zeros_like(Psi.flatten()), np.cos(Psi.flatten()), -np.sin(Psi.flatten())), axis=1)[:,:,None]), axis=2)
-                rotation_matrix = np.concatenate((rotation_matrix, np.stack((np.zeros_like(Psi.flatten()), np.sin(Psi.flatten()), np.cos(Psi.flatten())), axis=1)[:,:,None]), axis=2)
+                Psi = -Psi                          # not sure why this is necessary only for 'x'
 
             elif self.deform_axis == 'y':
                 delta_psi = delta_x / R_cylinder
@@ -123,12 +120,11 @@ class Reflectarray:
                 self.x = R_cylinder * np.sin(Psi)
                 self.z = R_cylinder * np.cos(Psi)
 
-                rotation_matrix = np.stack((np.cos(-Psi.flatten()), np.zeros_like(Psi.flatten()), np.sin(-Psi.flatten())), axis=1)[:,:,None]
-                rotation_matrix = np.concatenate((rotation_matrix, np.stack((np.zeros_like(Psi.flatten()), np.ones_like(Psi.flatten()), np.zeros_like(Psi.flatten())), axis=1)[:,:,None]), axis=2)
-                rotation_matrix = np.concatenate((rotation_matrix, np.stack((-np.sin(-Psi.flatten()), np.zeros_like(Psi.flatten()), np.cos(-Psi.flatten())), axis=1)[:,:,None]), axis=2)
-
-            self.n_hat = (rotation_matrix @ self.n_hat[:,:,None])[:,:,0]
-            self.lattice_vectors = (rotation_matrix[None,:,:,:] @ self.lattice_vectors[:,:,:,None])[:,:,:,0]
+            self.n_hat = transformations.rotate_vector(self.n_hat, np.degrees(Psi.flatten()), self.deform_axis)
+            lattice_vectors_rotated = []
+            for i in range(self.lattice_vectors.shape[0]):
+                lattice_vectors_rotated.append(transformations.rotate_vector(self.lattice_vectors[i,:,:], np.degrees(Psi.flatten()), self.deform_axis))
+            self.lattice_vectors = np.stack(lattice_vectors_rotated, axis=0)
 
             self.z = self.z - self.z.max()
             self.r = np.stack((self.x.flatten(), self.y.flatten(), self.z.flatten()), axis=1)
@@ -155,7 +151,7 @@ class Reflectarray:
                 for i in range(self.element.lattice_vectors.shape[0]):
                     ax.quiver(self.r[:,0].flatten(), self.r[:,1].flatten(),
                               self.lattice_vectors[i,:,0], self.lattice_vectors[i,:,1],
-                              angles='xy', scale=25, scale_units='xy', color='tab:red')
+                              scale=10, color='tab:red', pivot='middle')
             ax.set_xlabel('$x$')
             ax.set_ylabel('$y$')
             ax.set_title('Reflectarray Dipole Positions')
@@ -170,7 +166,7 @@ class Reflectarray:
                 for i in range(self.element.lattice_vectors.shape[0]):
                     ax.quiver(self.r[:,0].flatten(), self.r[:,1].flatten(), self.r[:,2].flatten(),
                               self.lattice_vectors[i,:,0], self.lattice_vectors[i,:,1], self.lattice_vectors[i,:,2],
-                              length=0.03, color='tab:red')
+                              length=0.03, color='tab:red', pivot='middle')
             if kwargs.get('legend', True):
                 ax.legend(frameon=False)
             ax.set_xlabel('$x$ (m)')

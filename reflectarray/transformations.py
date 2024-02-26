@@ -91,4 +91,28 @@ def spherical_to_circular_vector(vec):
     vec_reshape = np.transpose(np.array([vec[:,1], vec[:,2]]))
     T_circular = np.array([[1/np.sqrt(2), -1j/np.sqrt(2)], [1/np.sqrt(2), 1j/np.sqrt(2)]])
     return np.matmul(T_circular[None,:,:], vec_reshape[:,:,None])[:,:,0]
+
+def rotate_vector(vector_array, angle, rotation_axis):
+    if vector_array.ndim == 1:
+        vector_array = vector_array[None,:]
+        
+    angle = np.radians(angle)[:,None]
+    
+    axis_dictionary = {'x': np.array([1, 0, 0]), 'y': np.array([0, 1, 0]), 'z': np.array([0, 0, 1])}
+    
+    if isinstance(rotation_axis, str):
+        if rotation_axis in ['x', 'y', 'z']:
+            rotation_axis = axis_dictionary[rotation_axis][None,:]
+        
+        else:
+            raise Exception('Specify rotation axis as \'x\', \'y\', or \'z\', or supply arbitrary length (3,) vector.')
+            
+    else:
+        if rotation_axis.ndim == 1:
+            rotation_axis = rotation_axis[None,:]
+        
+    out = (np.sum(rotation_axis * vector_array, axis=1, keepdims=True) * rotation_axis +
+            np.cross(np.cross(rotation_axis, vector_array, axis=1), rotation_axis, axis=1) * np.cos(angle) +
+            np.cross(rotation_axis, vector_array, axis=1) * np.sin(angle))
+    return out
     
