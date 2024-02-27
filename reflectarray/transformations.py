@@ -96,7 +96,7 @@ def rotate_vector(vector_array, angle, rotation_axis):
     if vector_array.ndim == 1:
         vector_array = vector_array[None,:]
         
-    angle = np.radians(angle)[:,None]
+    angle = np.radians(np.atleast_1d(angle))[:,None]
     
     axis_dictionary = {'x': np.array([1, 0, 0]), 'y': np.array([0, 1, 0]), 'z': np.array([0, 0, 1])}
     

@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 import scipy.constants
 import scipy.io
 from reflectarray import toolbox as tb
+from reflectarray import transformations
 tb.set_font(fontsize=15)
 
 C = scipy.constants.c
@@ -25,22 +26,48 @@ class Feed:
                 print('No frequency vector provided, defaulting to 10 GHz')
             self.f = 10E9
 
+        self.r_offset = np.array(kwargs.get('r_offset', (0, 0, 10*C/self.f)))
+        self.rotation = np.array(kwargs.get('rotation', (0, 0, 0)))
+
+        self.make(**kwargs)
+        self.transform()
+        
+        ### CALCULATE COEFFICIENT ACCORDING TO GAIN
+            
+    def make(self, **kwargs):
         self.r_origin = kwargs.get('r', None)
         if self.r_origin is None:
             self.r_origin = np.array([[0, 0, 0]])
 
-        self.J_e = kwargs.get('J_e', None)
-        self.J_m = kwargs.get('J_m', None)
-        if self.J_e is None:
-            self.J_e = np.tile(np.array([[1, 0, 0]]), (self.r_origin.shape[0], 1))
+        self.J_e_origin = kwargs.get('J_e', None)
+        self.J_m_origin = kwargs.get('J_m', None)
+        if (self.J_e_origin is None) and (self.J_m_origin is None):
+            self.J_e_origin = np.tile(np.array([[1, 0, 0]]).astype(np.complex128), (self.r_origin.shape[0], 1))
 
-        self.r_offset = np.array(kwargs.get('r_offset', (0, 0, 10*C/self.f)))
-        self.rotation = np.array(kwargs.get('rotation', (0, 0, 0)))
+    def transform(self):
+        self.r = transformations.rotate_vector(self.r_origin, 180, 'y')         ### flip feed so that it's facing in -z direction
+        self.r = np.copy(self.r_origin)
+        self.r = transformations.rotate_vector(self.r, self.rotation[0], 'x')
+        self.r = transformations.rotate_vector(self.r, self.rotation[1], 'y')
+        self.r = transformations.rotate_vector(self.r, self.rotation[2], 'z')
+        self.r += self.r_offset[None,:]
 
-        ### CALCULATE COEFFICIENT ACCORDING TO GAIN
-
-        self.r = self.r_origin + self.r_offset[None,:]
-
+        if self.J_e_origin is not None:
+            self.J_e = transformations.rotate_vector(self.J_e_origin, 180, 'y')         ### flip feed electric currents
+            self.J_e = transformations.rotate_vector(self.J_e, self.rotation[0], 'x')
+            self.J_e = transformations.rotate_vector(self.J_e, self.rotation[1], 'y')
+            self.J_e = transformations.rotate_vector(self.J_e, self.rotation[2], 'z')
+        else:
+            self.J_e = None
+        
+        if self.J_m_origin is not None:
+            self.J_m = transformations.rotate_vector(self.J_m_origin, 180, 'y')         ### flip feed magnetic currents
+            self.J_m = transformations.rotate_vector(self.J_m, self.rotation[0], 'x')
+            self.J_m = transformations.rotate_vector(self.J_m, self.rotation[1], 'y')
+            self.J_m = transformations.rotate_vector(self.J_m, self.rotation[2], 'z')
+        else:
+            self.J_m = None
+        
     def plot(self, ax=None, plot_type='2D', **kwargs):
         L_ap = np.maximum(self.r[:,0].max() - self.r[:,0].min(), self.r[:,1].max() - self.r[:,1].min())
         buffer = np.maximum(0.1*L_ap, 0.1)
@@ -54,21 +81,23 @@ class Feed:
             elif plot_type=='3D':
                 ax = fig.add_subplot(projection='3d')
 
-        plot_dict = {'J_e': self.J_e, 'J_m': self.J_m}
+        plot_dict_origin = {'J_e': np.real(self.J_e_origin), 'J_m': np.real(self.J_m_origin)}
+        plot_dict = {'J_e': np.real(self.J_e), 'J_m': np.real(self.J_m)}
         component_dict = {'x': 0, 'y': 1, 'z': 2}
         plot_value = kwargs.get('plot_value', 'J_e')
         component = kwargs.get('component', 'x')
         quiver = kwargs.get('quiver', False)
 
+        plot_obj_origin = plot_dict_origin[plot_value]
         plot_obj = plot_dict[plot_value]
         component_index = component_dict[component]
 
         if plot_type == '2D':
             
-            ax.scatter(self.r[:,0], self.r[:,1], marker='o', facecolors='none', c=np.real(plot_obj)[:,component_index], label='Feed Positions')
+            ax.scatter(self.r_origin[:,0], self.r_origin[:,1], marker='o', facecolors='none', c=np.real(plot_obj)[:,component_index], label='Feed Positions')
             if quiver:    
-                ax.quiver(self.r[:,0].flatten(), self.r[:,1].flatten(),
-                            np.abs(plot_obj)[:,0], np.abs(plot_obj)[:,1],
+                ax.quiver(self.r_origin[:,0].flatten(), self.r_origin[:,1].flatten(),
+                            plot_obj_origin[:,0], plot_obj_origin[:,1],
                             scale=10, color='tab:red', pivot='middle',
                             label='${}$'.format(plot_value))
             if kwargs.get('legend', True):
@@ -81,7 +110,7 @@ class Feed:
             ax.scatter(self.r[:,0], self.r[:,1], self.r[:,2], marker='o', facecolors='none', c=np.real(plot_obj)[:,component_index], label='Feed Positions')
             if quiver:
                 ax.quiver(self.r[:,0].flatten(), self.r[:,1].flatten(), self.r[:,2].flatten(),
-                    np.abs(plot_obj)[:,0], np.abs(plot_obj)[:,1], np.abs(plot_obj)[:,2], length=0.03, color='tab:red', label='${}$'.format(plot_value))
+                    plot_obj[:,0], plot_obj[:,1], plot_obj[:,2], length=0.01, color='tab:red', label='${}$'.format(plot_value), pivot='middle')
             if kwargs.get('legend', True):
                 ax.legend(frameon=False)
             ax.set_xlabel('$x$ (m)')
