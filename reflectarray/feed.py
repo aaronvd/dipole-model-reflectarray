@@ -9,6 +9,9 @@ tb.set_font(fontsize=15)
 C = scipy.constants.c
 EPS_0 = scipy.constants.epsilon_0
 MU_0 = scipy.constants.mu_0
+ETA_0 = np.sqrt(MU_0/EPS_0)
+
+mm = 1E-3
 
 class Feed:
     '''
@@ -122,4 +125,30 @@ class Feed:
         ax.set_aspect('equal')
         plt.tight_layout()
 
-        
+class PyramidalHorn(Feed):
+    '''
+    Defines a pyramidal horn, inheriting from the Feed class.
+    E-polarization in y direction by default.
+    Definition from Balanis, C. A. (2016). Antenna Theory: Analysis and Design. John Wiley & Sons.
+    '''
+    def __init__(self, f=None, **kwargs):
+        super().__init__(f, **kwargs)
+
+    def make(self, **kwargs):
+        self.E0 = kwargs.get('E0', 1)
+        a = kwargs.get('a', 40.13*mm)
+        b = kwargs.get('b', 29.2*mm)
+        rho_1 = kwargs.get('rho_1', 66.09*mm)
+        rho_2 = kwargs.get('rho_2', 100.155*mm)
+        delta_x = kwargs.get('delta_x', C/(self.f*10))
+        delta_y = kwargs.get('delta_y', C/(self.f*10))
+        x_horn = np.arange(-a/2, a/2+delta_x, delta_x)
+        y_horn = np.arange(-b/2, b/2+delta_y, delta_y)
+        x_horn, y_horn = np.meshgrid(x_horn, y_horn, indexing='ij')
+        z_horn = np.zeros_like(x_horn)
+        self.r_origin = np.stack((x_horn.flatten(), y_horn.flatten(), z_horn.flatten()), axis=1)
+
+        self.J_ey = -self.E0/ETA_0 * np.cos(np.pi*self.r_origin[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r_origin[:,0]**2/rho_2 + self.r_origin[:,1]**2/rho_1)/C))
+        self.J_mx = self.E0 * np.cos(np.pi*self.r_origin[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r_origin[:,0]**2/rho_2 + self.r_origin[:,1]**2/rho_1)/C))
+        self.J_e_origin = np.stack((np.zeros_like(self.J_ey), self.J_ey, np.zeros_like(self.J_ey)), axis=1)
+        self.J_m_origin = np.stack((self.J_mx, np.zeros_like(self.J_mx), np.zeros_like(self.J_mx)), axis=1)
