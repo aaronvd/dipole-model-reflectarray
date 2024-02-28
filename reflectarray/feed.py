@@ -1,9 +1,9 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import scipy.constants
-import scipy.io
 from reflectarray import toolbox as tb
 from reflectarray import transformations
+from reflectarray.compute import Compute
 tb.set_font(fontsize=15)
 
 C = scipy.constants.c
@@ -35,8 +35,6 @@ class Feed:
         self.make(**kwargs)
         self.transform()
         
-        ### CALCULATE COEFFICIENT ACCORDING TO GAIN
-            
     def make(self, **kwargs):
         self.r_origin = kwargs.get('r', None)
         if self.r_origin is None:
@@ -133,6 +131,17 @@ class PyramidalHorn(Feed):
     '''
     def __init__(self, f=None, **kwargs):
         super().__init__(f, **kwargs)
+
+        self.gain = kwargs.get('gain', None)
+        if self.gain is not None:
+            gain_linear = 10**(self.gain/10)
+            compute1 = Compute(quiet=self.quiet)
+            E_far = compute1.far_field_propagate(self, 1, 2, 2*np.pi*self.f/C, method='integration')
+            U_int = 1/(2*ETA_0) * np.sum(np.abs(E_far)**2, axis=1)
+            self.E0 = np.sqrt(gain_linear/(4*np.pi*np.amax(U_int)))
+
+            self.make(**kwargs)
+            self.transform()
 
     def make(self, **kwargs):
         self.E0 = kwargs.get('E0', 1)
