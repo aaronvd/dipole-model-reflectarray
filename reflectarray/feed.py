@@ -16,7 +16,8 @@ mm = 1E-3
 class Feed:
     '''
     Base class for reflectarray feed. Defaults to point dipole. 
-    Supply (N x 3) array of positions and corresponding electric and/or magnetic currents as (N x 3) arrays.
+    Accepts various keyword combinations for defining feed positions.
+    Supply corresponding electric and/or magnetic currents as (N x 3) arrays.
     Approach: define 2D feed antenna centered at origin, and provide offset and rotation vectors.
     '''
 
@@ -36,9 +37,62 @@ class Feed:
         self.transform()
         
     def make(self, **kwargs):
-        self.r_origin = kwargs.get('r', None)
-        if self.r_origin is None:
-            self.r_origin = np.array([[0, 0, 0]])
+        self.x = kwargs.get('x', None)
+        self.y = kwargs.get('y', None)
+        if (any([i in kwargs for i in ['delta_x', 'Nx', 'Lx']])) or (any([i in kwargs for i in ['delta_y', 'Ny', 'Ly']])):
+            if sum([i in kwargs for i in ['delta_x', 'Nx', 'Lx']]) == 1:
+                raise Exception('Must supply two out of three of delta_x, Nx, or Lx.')
+            elif ('delta_x' in kwargs) and ('Nx' in kwargs):
+                self.delta_x = kwargs.get('delta_x')
+                self.Nx = kwargs.get('Nx')
+                self.Lx = (self.Nx - 1) * self.delta_x
+                self.x = np.linspace(-self.Lx/2, self.Lx/2, self.Nx)
+            elif ('delta_x' in kwargs) and ('Lx' in kwargs):
+                self.delta_x = kwargs.get('delta_x')
+                self.Lx = kwargs.get('Lx')
+                self.Nx = int(self.Lx/self.delta_x) + 1
+                self.x = np.linspace(-self.Lx/2, self.Lx/2, self.Nx)
+            elif ('Lx' in kwargs) and ('Nx' in kwargs):
+                self.Lx = kwargs.get('Lx')
+                self.Nx = kwargs.get('Nx')
+                self.delta_x = self.Lx/(self.Nx - 1)
+                self.x = np.linspace(-self.Lx/2, self.Lx/2, self.Nx)
+            if sum([i in kwargs for i in ['delta_y', 'Ny', 'Ly']]) == 1:
+                raise Exception('Must supply two out of three of delta_y, Ny, or Ly.')
+            elif ('delta_y' in kwargs) and ('Ny' in kwargs):
+                self.delta_y = kwargs.get('delta_y')
+                self.Ny = kwargs.get('Ny')
+                self.Ly = (self.Ny - 1) * self.delta_y
+                self.y = np.linspace(-self.Ly/2, self.Ly/2, self.Ny)
+            elif ('delta_y' in kwargs) and ('Ly' in kwargs):
+                self.delta_y = kwargs.get('delta_y')
+                self.Ly = kwargs.get('Ly')
+                self.Ny = int(self.Ly/self.delta_y + 1)
+                self.y = np.linspace(-self.Ly/2, self.Ly/2, self.Ny)
+            elif ('Ly' in kwargs) and ('Ny' in kwargs):
+                self.Ly = kwargs.get('Ly')
+                self.Ny = kwargs.get('Ny')
+                self.delta_y = self.Ly/(self.Ny - 1)
+                self.y = np.linspace(-self.Ly/2, self.Ly/2, self.Ny)
+        
+        if ((self.x is not None) and (self.y is None)):
+            self.y = np.zeros_like(self.x)
+            self.z = np.zeros_like(self.x)
+        elif ((self.y is not None) and (self.x is None)):
+            self.x = np.zeros_like(self.y)
+            self.z = np.zeros_like(self.y)
+        elif (self.x is not None) and (self.y is not None):
+            self.x, self.y = np.meshgrid(self.x, self.y, indexing='ij')
+            self.x = self.x.flatten()
+            self.y = self.y.flatten()
+            self.z = np.zeros_like(self.x)
+        else:
+            self.x = np.array([0])
+            self.y = np.array([0])
+            self.z = np.array([0])
+        
+        self.r = np.stack((self.x, self.y, self.z), axis=1)
+        self.N = self.r.shape[0]
 
         self.J_e_origin = kwargs.get('J_e', None)
         self.J_m_origin = kwargs.get('J_m', None)
@@ -46,8 +100,7 @@ class Feed:
             self.J_e_origin = np.tile(np.array([[1, 0, 0]]).astype(np.complex128), (self.r_origin.shape[0], 1))
 
     def transform(self):
-        self.r = transformations.rotate_vector(self.r_origin, 180, 'y')         ### flip feed so that it's facing in -z direction
-        self.r = np.copy(self.r_origin)
+        self.r = transformations.rotate_vector(self.r, 180, 'y')         ### flip feed so that it's facing in -z direction
         self.r = transformations.rotate_vector(self.r, self.rotation[0], 'x')
         self.r = transformations.rotate_vector(self.r, self.rotation[1], 'y')
         self.r = transformations.rotate_vector(self.r, self.rotation[2], 'z')
@@ -70,7 +123,7 @@ class Feed:
             self.J_m = None
         
     def plot(self, ax=None, plot_type='2D', **kwargs):
-        L_ap = np.maximum(self.r[:,0].max() - self.r[:,0].min(), self.r[:,1].max() - self.r[:,1].min())
+        L_ap = np.maximum(self.x.max() - self.x.min(), self.y.max() - self.y.min())
         buffer = np.maximum(0.1*L_ap, 0.1)
         if plot_type is None:
             plot_type = '2D'
@@ -93,11 +146,17 @@ class Feed:
         plot_obj = plot_dict[plot_value]
         component_index = component_dict[component]
 
+        X, Y = np.meshgrid(self.x, self.y, indexing='ij')
+        Z = np.zeros_like(X)
+        X = X.flatten()
+        Y = Y.flatten()
+        Z = Z.flatten()
+
         if plot_type == '2D':
             
-            ax.scatter(self.r_origin[:,0], self.r_origin[:,1], marker='o', facecolors='none', c=np.real(plot_obj)[:,component_index], label='Feed Positions')
+            ax.scatter(X, Y, marker='o', facecolors='none', c=np.real(plot_obj)[:,component_index], label='Feed Positions')
             if quiver:    
-                ax.quiver(self.r_origin[:,0].flatten(), self.r_origin[:,1].flatten(),
+                ax.quiver(X.flatten(), Y.flatten(),
                             plot_obj_origin[:,0], plot_obj_origin[:,1],
                             scale=10, color='tab:red', pivot='middle',
                             label='${}$'.format(plot_value))
@@ -133,15 +192,15 @@ class PyramidalHorn(Feed):
         super().__init__(f, **kwargs)
 
         self.gain = kwargs.get('gain', None)
-        if self.gain is not None:
-            gain_linear = 10**(self.gain/10)
-            compute1 = Compute(quiet=self.quiet)
-            E_far = compute1.far_field_propagate(self, 1, 2, 2*np.pi*self.f/C, method='integration')
-            U_int = 1/(2*ETA_0) * np.sum(np.abs(E_far)**2, axis=1)
-            self.E0 = np.sqrt(gain_linear/(4*np.pi*np.amax(U_int)))
+        # if self.gain is not None:
+        #     gain_linear = 10**(self.gain/10)
+        #     compute1 = Compute(quiet=self.quiet)
+        #     E_far = compute1.far_field_propagate(self, 1, 2, 2*np.pi*self.f/C, method='integration')
+        #     U_int = 1/(2*ETA_0) * np.sum(np.abs(E_far)**2, axis=1)
+        #     self.E0 = np.sqrt(gain_linear/(4*np.pi*np.amax(U_int)))
 
-            self.make(**kwargs)
-            self.transform()
+            # self.make(**kwargs)
+            # self.transform()
 
     def make(self, **kwargs):
         self.E0 = kwargs.get('E0', 1)
@@ -151,13 +210,13 @@ class PyramidalHorn(Feed):
         rho_2 = kwargs.get('rho_2', 100.155*mm)
         delta_x = kwargs.get('delta_x', C/(self.f*10))
         delta_y = kwargs.get('delta_y', C/(self.f*10))
-        x_horn = np.arange(-a/2, a/2+delta_x, delta_x)
-        y_horn = np.arange(-b/2, b/2+delta_y, delta_y)
-        x_horn, y_horn = np.meshgrid(x_horn, y_horn, indexing='ij')
-        z_horn = np.zeros_like(x_horn)
-        self.r_origin = np.stack((x_horn.flatten(), y_horn.flatten(), z_horn.flatten()), axis=1)
+        self.x = np.arange(-a/2, a/2+delta_x, delta_x)
+        self.y = np.arange(-b/2, b/2+delta_y, delta_y)
+        X, Y = np.meshgrid(self.x, self.y, indexing='ij')
+        Z = np.zeros_like(X)
+        self.r = np.stack((X.flatten(), Y.flatten(), Z.flatten()), axis=1)
 
-        self.J_ey = -self.E0/ETA_0 * np.cos(np.pi*self.r_origin[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r_origin[:,0]**2/rho_2 + self.r_origin[:,1]**2/rho_1)/C))
-        self.J_mx = self.E0 * np.cos(np.pi*self.r_origin[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r_origin[:,0]**2/rho_2 + self.r_origin[:,1]**2/rho_1)/C))
-        self.J_e_origin = np.stack((np.zeros_like(self.J_ey), self.J_ey, np.zeros_like(self.J_ey)), axis=1)
-        self.J_m_origin = np.stack((self.J_mx, np.zeros_like(self.J_mx), np.zeros_like(self.J_mx)), axis=1)
+        J_ey = -self.E0/ETA_0 * np.cos(np.pi*self.r[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/C))
+        J_mx = self.E0 * np.cos(np.pi*self.r[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/C))
+        self.J_e_origin = np.stack((np.zeros_like(J_ey), J_ey, np.zeros_like(J_ey)), axis=1)
+        self.J_m_origin = np.stack((J_mx, np.zeros_like(J_mx), np.zeros_like(J_mx)), axis=1)
