@@ -24,6 +24,7 @@ class Feed:
     def __init__(self, f=None, **kwargs):
 
         self.quiet = kwargs.get('quiet', False)
+        self.compute = Compute(quiet=self.quiet)
         self.f = f
         if self.f is None:
             if not self.quiet:
@@ -75,29 +76,22 @@ class Feed:
                 self.delta_y = self.Ly/(self.Ny - 1)
                 self.y = np.linspace(-self.Ly/2, self.Ly/2, self.Ny)
         
-        if ((self.x is not None) and (self.y is None)):
-            self.y = np.zeros_like(self.x)
-            self.z = np.zeros_like(self.x)
-        elif ((self.y is not None) and (self.x is None)):
-            self.x = np.zeros_like(self.y)
-            self.z = np.zeros_like(self.y)
-        elif (self.x is not None) and (self.y is not None):
-            self.x, self.y = np.meshgrid(self.x, self.y, indexing='ij')
-            self.x = self.x.flatten()
-            self.y = self.y.flatten()
-            self.z = np.zeros_like(self.x)
-        else:
-            self.x = np.array([0])
-            self.y = np.array([0])
-            self.z = np.array([0])
+        if self.x is None:
+            self.x = 0
+        if self.y is None:
+            self.y = 0
+        X, Y = np.meshgrid(self.x, self.y, indexing='ij')
+        Z = np.zeros(X.shape)
         
-        self.r = np.stack((self.x, self.y, self.z), axis=1)
+        self.r = np.stack((X.flatten(), Y.flatten(), Z.flatten()), axis=1)
         self.N = self.r.shape[0]
 
         self.J_e_origin = kwargs.get('J_e', None)
         self.J_m_origin = kwargs.get('J_m', None)
         if (self.J_e_origin is None) and (self.J_m_origin is None):
             self.J_e_origin = np.tile(np.array([[1, 0, 0]]).astype(np.complex128), (self.r_origin.shape[0], 1))
+        self.J_e = np.copy(self.J_e_origin)
+        self.J_m = np.copy(self.J_m_origin)
 
     def transform(self):
         self.r = transformations.rotate_vector(self.r, 180, 'y')         ### flip feed so that it's facing in -z direction
@@ -106,21 +100,20 @@ class Feed:
         self.r = transformations.rotate_vector(self.r, self.rotation[2], 'z')
         self.r += self.r_offset[None,:]
 
-        if self.J_e_origin is not None:
-            self.J_e = transformations.rotate_vector(self.J_e_origin, 180, 'y')         ### flip feed electric currents
+        if self.J_e is not None:
+            self.J_e = transformations.rotate_vector(self.J_e, 180, 'y')         ### flip feed electric currents
             self.J_e = transformations.rotate_vector(self.J_e, self.rotation[0], 'x')
             self.J_e = transformations.rotate_vector(self.J_e, self.rotation[1], 'y')
             self.J_e = transformations.rotate_vector(self.J_e, self.rotation[2], 'z')
-        else:
-            self.J_e = None
         
-        if self.J_m_origin is not None:
-            self.J_m = transformations.rotate_vector(self.J_m_origin, 180, 'y')         ### flip feed magnetic currents
+        if self.J_m is not None:
+            self.J_m = transformations.rotate_vector(self.J_m, 180, 'y')         ### flip feed magnetic currents
             self.J_m = transformations.rotate_vector(self.J_m, self.rotation[0], 'x')
             self.J_m = transformations.rotate_vector(self.J_m, self.rotation[1], 'y')
             self.J_m = transformations.rotate_vector(self.J_m, self.rotation[2], 'z')
-        else:
-            self.J_m = None
+
+    def far_field_propagate(self, delta_theta, delta_phi, method='integration'):
+        self.compute.far_field_propagate(self, delta_theta, delta_phi, 2*np.pi*self.f/C, method=method)
         
     def plot(self, ax=None, plot_type='2D', **kwargs):
         L_ap = np.maximum(self.x.max() - self.x.min(), self.y.max() - self.y.min())
@@ -189,21 +182,31 @@ class PyramidalHorn(Feed):
     Definition from Balanis, C. A. (2016). Antenna Theory: Analysis and Design. John Wiley & Sons.
     '''
     def __init__(self, f=None, **kwargs):
-        super().__init__(f, **kwargs)
+        self.E0 = kwargs.get('E0', 1)
+        self.quiet = kwargs.get('quiet', False)
+        self.compute = Compute(quiet=self.quiet)
+        self.f = f
+        if self.f is None:
+            if not self.quiet:
+                print('No frequency vector provided, defaulting to 10 GHz')
+            self.f = 10E9
+
+        self.r_offset = np.array(kwargs.get('r_offset', (0, 0, 10*C/self.f)))
+        self.rotation = np.array(kwargs.get('rotation', (0, 0, 0)))
+
+        self.make(**kwargs)
 
         self.gain = kwargs.get('gain', None)
-        # if self.gain is not None:
-        #     gain_linear = 10**(self.gain/10)
-        #     compute1 = Compute(quiet=self.quiet)
-        #     E_far = compute1.far_field_propagate(self, 1, 2, 2*np.pi*self.f/C, method='integration')
-        #     U_int = 1/(2*ETA_0) * np.sum(np.abs(E_far)**2, axis=1)
-        #     self.E0 = np.sqrt(gain_linear/(4*np.pi*np.amax(U_int)))
+        if self.gain is not None:
+            gain_linear = 10**(self.gain/10)
+            self.far_field_propagate(1, 2, method='integration')
+            U_int = 1/(2*ETA_0) * np.sum(np.abs(self.compute.E_ff)**2, axis=1)
+            self.E0 = np.sqrt(gain_linear/(4*np.pi*np.amax(U_int)))
+            self.make(**kwargs)
 
-            # self.make(**kwargs)
-            # self.transform()
+        self.transform()
 
     def make(self, **kwargs):
-        self.E0 = kwargs.get('E0', 1)
         a = kwargs.get('a', 40.13*mm)
         b = kwargs.get('b', 29.2*mm)
         rho_1 = kwargs.get('rho_1', 66.09*mm)
@@ -215,8 +218,11 @@ class PyramidalHorn(Feed):
         X, Y = np.meshgrid(self.x, self.y, indexing='ij')
         Z = np.zeros_like(X)
         self.r = np.stack((X.flatten(), Y.flatten(), Z.flatten()), axis=1)
+        self.N = self.r.shape[0]
 
         J_ey = -self.E0/ETA_0 * np.cos(np.pi*self.r[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/C))
         J_mx = self.E0 * np.cos(np.pi*self.r[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/C))
         self.J_e_origin = np.stack((np.zeros_like(J_ey), J_ey, np.zeros_like(J_ey)), axis=1)
         self.J_m_origin = np.stack((J_mx, np.zeros_like(J_mx), np.zeros_like(J_mx)), axis=1)
+        self.J_e = np.copy(self.J_e_origin)
+        self.J_m = np.copy(self.J_m_origin)

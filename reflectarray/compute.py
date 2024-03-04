@@ -17,8 +17,21 @@ class Compute:
         self.quiet = quiet
 
     def near_field_propagate(self, source, r_target, k, field='H'):
-        x_source = np.unique(source.r[:,0])
-        y_source = np.unique(source.r[:,1])
+
+        if source.__module__.split('.')[-1] == 'reflectarray':
+            if source.deformed:
+                if source.deform_axis == 'x':
+                    x_source = source.x
+                    y_source = source.R_cylinder * source.psi
+                elif source.deform_axis == 'y':
+                    x_source = source.R_cylinder * source.psi
+                    y_source = source.y
+            else:
+                x_source = source.x
+                y_source = source.y
+        else:
+            x_source = source.x
+            y_source = source.y
         
         if field == 'H':
             H_A = np.empty(r_target.shape, dtype=np.complex64)
@@ -45,15 +58,27 @@ class Compute:
             return H_A + H_F
 
     def far_field_propagate(self, source, delta_theta, delta_phi, k, method='integration'):
-        
-        x_source = np.unique(source.r[:,0])
-        y_source = np.unique(source.r[:,1])
+
+        if source.__module__.split('.')[-1] == 'reflectarray':
+            if source.deformed:
+                if source.deform_axis == 'x':
+                    x_source = source.x
+                    y_source = source.R_cylinder * source.psi
+                elif source.deform_axis == 'y':
+                    x_source = source.R_cylinder * source.psi
+                    y_source = source.y
+            else:
+                x_source = source.x
+                y_source = source.y
+        else:
+            x_source = source.x
+            y_source = source.y
         
         if method == 'integration':
             
-            theta = np.radians(np.arange(0, 90+delta_theta, delta_theta))
-            phi = np.radians(np.arange(0, 360+delta_phi, delta_phi))
-            Theta, Phi = np.meshgrid(theta, phi, indexing='ij')
+            self.theta = np.radians(np.arange(0, 90+delta_theta, delta_theta))
+            self.phi = np.radians(np.arange(0, 360+delta_phi, delta_phi))
+            Theta, Phi = np.meshgrid(self.theta, self.phi, indexing='ij')
             Theta = np.reshape(Theta, -1)
             Phi = np.reshape(Phi, -1)
 
@@ -63,7 +88,7 @@ class Compute:
             k_far_vec = k * r_hat
 
             if source.J_e is not None:
-                J_e_grid = np.reshape(source.J_e, (x_source.size, y_source.size, 3))
+                J_e_grid = np.reshape(source.J_e, (source.x.size, source.y.size, 3))
                 N_theta = np.empty((Theta.size), dtype=np.complex64)
                 N_phi = np.empty((Theta.size), dtype=np.complex64)
                 for i in range(Theta.size):
@@ -82,7 +107,7 @@ class Compute:
                 N_phi = 0
             
             if source.J_m is not None:
-                J_m_grid = np.reshape(source.J_m, (x_source.size, y_source.size, 3))
+                J_m_grid = np.reshape(source.J_m, (source.x.size, y_source.size, 3))
                 L_theta = np.empty((Theta.size), dtype=np.complex64)
                 L_phi = np.empty((Theta.size), dtype=np.complex64)
                 for i in range(Theta.size):
@@ -105,4 +130,4 @@ class Compute:
             E_theta = -(1j*k*np.exp(-1j*k*R_far))/(4*np.pi*R_far) * (L_phi + ETA_0 * N_theta)
             E_phi = (1j*k*np.exp(-1j*k*R_far))/(4*np.pi*R_far) * (L_theta - ETA_0 * N_phi)
 
-            return np.stack((np.zeros_like(E_theta), E_theta, E_phi), axis=1)
+            self.E_ff = np.stack((np.zeros_like(E_theta), E_theta, E_phi), axis=1)

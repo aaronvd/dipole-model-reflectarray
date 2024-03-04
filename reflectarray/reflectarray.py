@@ -9,13 +9,15 @@ C = scipy.constants.c
 EPS_0 = scipy.constants.epsilon_0
 MU_0 = scipy.constants.mu_0
 
+mm = 1E-3
+
 class Reflectarray:
     '''
     Defines a physical, fixed reflectarray antenna in terms of dipole positions, dipole complex magnitudes, and frequencies.
     Handles various methods of supplying dipole positions, ultimately converted to (# positions) x 3 array.
     '''
 
-    def __init__(self, element, **kwargs):
+    def __init__(self, element, eps_r=1, d=0.762*mm, **kwargs):
         
         self.quiet = kwargs.get('quiet', False)
 
@@ -23,9 +25,13 @@ class Reflectarray:
         self.element = element
         self.lattice_vectors = np.copy(self.element.lattice_vectors)[:,None,:]
         self.f = self.element.f
+        self.eps_r = eps_r
+        self.tan_delta = kwargs.get('tan_delta', 0)
+        self.d = d
 
         self.x = kwargs.get('x', None)
         self.y = kwargs.get('y', None)
+        self.z = 0
         if (any([i in kwargs for i in ['delta_x', 'Nx', 'Lx']])) or (any([i in kwargs for i in ['delta_y', 'Ny', 'Ly']])):
             if sum([i in kwargs for i in ['delta_x', 'Nx', 'Lx']]) == 1:
                 raise Exception('Must supply two out of three of delta_x, Nx, or Lx.')
@@ -62,23 +68,14 @@ class Reflectarray:
                 self.delta_y = self.Ly/(self.Ny - 1)
                 self.y = np.linspace(-self.Ly/2, self.Ly/2, self.Ny)
         
-        if ((self.x is not None) and (self.y is None)):
-            self.y = np.zeros_like(self.x)
-            self.z = np.zeros_like(self.x)
-        elif ((self.y is not None) and (self.x is None)):
-            self.x = np.zeros_like(self.y)
-            self.z = np.zeros_like(self.y)
-        elif (self.x is not None) and (self.y is not None):
-            self.x, self.y = np.meshgrid(self.x, self.y, indexing='ij')
-            self.x = self.x.flatten()
-            self.y = self.y.flatten()
-            self.z = np.zeros_like(self.x)
-        else:
-            self.x = np.array([0])
-            self.y = np.array([0])
-            self.z = np.array([0])
+        if self.x is None:
+            self.x = 0
+        if self.y is None:
+            self.y = 0
+        X, Y = np.meshgrid(self.x, self.y, indexing='ij')
+        Z = np.zeros(X.shape)
         
-        self.r = np.stack((self.x, self.y, self.z), axis=1)
+        self.r = np.stack((X.flatten(), Y.flatten(), Z.flatten()), axis=1)
         self.N = self.r.shape[0]
 
         self.deformed = False
@@ -101,7 +98,7 @@ class Reflectarray:
             if self.deform_axis == 'x':
                 delta_psi = delta_y / self.R_cylinder
                 L_psi = Ly / self.R_cylinder
-                self.psi = np.arange(-L_psi/2, L_psi/2, delta_psi)
+                self.psi = np.arange(-L_psi/2, L_psi/2+delta_psi, delta_psi)
                 X, Psi = np.meshgrid(x, self.psi, indexing='ij')
                 Y = self.R_cylinder * np.sin(Psi)
                 Z = self.R_cylinder * np.cos(Psi)
@@ -110,7 +107,7 @@ class Reflectarray:
             elif self.deform_axis == 'y':
                 delta_psi = delta_x / self.R_cylinder
                 L_psi = Lx / self.R_cylinder
-                self.psi = np.arange(-L_psi/2, L_psi/2, delta_psi)
+                self.psi = np.arange(-L_psi/2, L_psi/2+delta_psi, delta_psi)
                 Psi, Y = np.meshgrid(self.psi, y, indexing='ij')
                 X = self.R_cylinder * np.sin(Psi)
                 Z = self.R_cylinder * np.cos(Psi)
