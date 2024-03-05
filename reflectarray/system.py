@@ -59,9 +59,9 @@ class System:
         R12 = (eta_2 - eta_1)/(eta_2 + eta_1)
         R23 = (eta_3 - eta_2)/(eta_3 + eta_2)
 
-        R12_tilda = (R12 + R23*np.exp(-2*1j*n2*k*(d2 - d1)))/(1 + R12*R23*np.exp(-2*1j*n2*k*(d2 - d1)))
+        self.R12_tilda = (R12 + R23*np.exp(-2*1j*n2*k*(d2 - d1)))/(1 + R12*R23*np.exp(-2*1j*n2*k*(d2 - d1)))
 
-        self.H_t = (1 - R12_tilda) * self.H_feed
+        self.H_t = (1 - self.R12_tilda) * self.H_feed
 
     def compute_polarizabilities(self, theta_beam, phi_beam, H_polarization=[0,1,0], R_far=10):
         delta_x = self.reflectarray.x[1] - self.reflectarray.x[0]
@@ -89,6 +89,10 @@ class System:
     def map_polarizabilities(self, mapping='ideal'):
         if mapping == 'ideal':
             self.alpha = self.alpha_desired
+        if mapping == 'euclidean':
+            pass
+        if mapping == 'phase_threshold':
+            pass
     
     def design(self, theta_beam, phi_beam, H_polarization=[0,1,0], R_far=10, mapping='ideal'):
         if not self.quiet:
@@ -120,6 +124,50 @@ class System:
             alpha_tensor += self.alpha[i,:,None,None] * (self.reflectarray.lattice_vectors[i,:,:,None] @ self.reflectarray.lattice_vectors[i,:,None,:])
         self.reflectarray.J_m = (1j*2*np.pi*self.f*MU_0/(delta_x*delta_y) * (alpha_tensor @ self.H_t[:,:,None]))[:,:,0]
         self.compute.far_field_propagate(self.reflectarray, delta_theta, delta_phi, 2*np.pi*self.f/C, method=method)
+
+    def calculate_beam_metrics(self, **kwargs):
+        self.compute.calculate_beam_metrics(**kwargs)
+
+    def plot_fields(self, ax=None, plot_type='2D', **kwargs):
+        E_int = np.sum(np.abs(self.compute.E_ff)**2, axis=1)
+        E_plot = np.reshape(E_int, (self.compute.theta.size, self.compute.phi.size))
+
+        dB_min = kwargs.get('dB_min', -20)
+        dB_max = kwargs.get('dB_max', 0)
+
+        if plot_type is None:
+            plot_type = '2D'
+        if ax is None:
+            if plot_type=='1D':
+                fig = plt.figure(figsize=(8,8))
+                ax = plt.subplot(111, projection='polar')
+            if plot_type=='2D':
+                fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7,7))
+
+        if plot_type=='1D':
+            phi_beam = kwargs.get('phi_slice', 0)
+            phi_beam = np.radians(phi_beam)
+            phi_indx1 = np.argmin(np.abs(self.compute.phi - phi_beam))
+            phi_indx2 = np.argmin(np.abs(self.compute.phi - (phi_beam+np.pi)))
+            E_plot_1D = np.concatenate((np.flip(E_plot[1:,phi_indx2][:,None]), E_plot[:,phi_indx1][:,None]))
+            ax.plot(np.linspace(-np.pi/2, np.pi/2, E_plot_1D.size), 10*np.log10(E_plot_1D/np.amax(E_plot_1D)))
+            ax.set_thetalim(-np.pi/2, np.pi/2)
+            ax.set_theta_zero_location("N")
+            ax.set_theta_direction(-1)
+            ax.set_ylabel('dB', rotation=0)
+            ax.set_ylim(dB_min, dB_max)
+            ax.yaxis.set_label_coords(0.17, 0.15)
+            ax.set_xlabel(r'$\theta$')
+            ax.xaxis.set_label_coords(0.5, 0.86)
+            ax.set_yticks(np.arange(dB_min, dB_max+10, 10))
+        elif plot_type=='2D':
+            cs = ax.contourf(self.compute.phi, self.compute.theta*180/np.pi, 10*np.log10(E_plot/np.amax(E_plot)), 
+                        np.linspace(dB_min, dB_max, 100), 
+                        cmap=plt.cm.hot_r)
+            ax.grid(True)
+            ax.set_rlabel_position(135)
+            fig.colorbar(cs, ticks=np.linspace(dB_min, dB_max, 7))
+            ax.set_xlabel('$\phi$')
     
     def plot(self, ax=None, **kwargs):
         if ax is None:

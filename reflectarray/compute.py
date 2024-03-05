@@ -131,3 +131,58 @@ class Compute:
             E_phi = (1j*k*np.exp(-1j*k*R_far))/(4*np.pi*R_far) * (L_theta - ETA_0 * N_phi)
 
             self.E_ff = np.stack((np.zeros_like(E_theta), E_theta, E_phi), axis=1)
+
+    def calculate_beamwidth(self, **kwargs):
+        E_int = np.sum(np.abs(self.E_ff)**2, axis=1)
+        E_plot = np.reshape(E_int, (self.theta.size, self.phi.size))
+        phi_beam = kwargs.get('phi_slice', 0)
+        phi_beam = np.radians(phi_beam)
+        phi_indx1 = np.argmin(np.abs(self.phi - phi_beam))
+        phi_indx2 = np.argmin(np.abs(self.phi - (phi_beam+np.pi)))
+        E_plot_1D = np.concatenate((np.flip(E_plot[1:,phi_indx2][:,None]), E_plot[:,phi_indx1][:,None]))
+        log_pattern = 10*np.log10(E_plot_1D[:,0]/np.amax(E_plot_1D))
+        angles = np.linspace(-np.pi/2, np.pi/2, log_pattern.size)*180/np.pi
+        angles_interp = np.linspace(angles[0], angles[-1], 10000)
+        log_pattern_interp = np.interp(angles_interp, angles, log_pattern)
+        peak_indx = np.argmax(log_pattern_interp)
+        log_pattern_left = log_pattern_interp[:peak_indx]
+        log_pattern_right = log_pattern_interp[peak_indx:]
+        beam_left = np.where(log_pattern_left < (log_pattern_interp[peak_indx]-3))[0][-1]
+        beam_right = np.where(log_pattern_right < (log_pattern_interp[peak_indx]-3))[0][0]
+        bw = angles_interp[peak_indx+beam_right] - angles_interp[beam_left]
+        if not self.quiet:
+            print('Beamwidth: {:.2f} degrees'.format(bw))
+        return bw
+    
+    def calculate_directivity(self, **kwargs):
+        quiet = kwargs.get('quiet', self.quiet)
+        Theta, Phi = np.meshgrid(self.theta, self.phi, indexing='ij')
+        E_int = np.sum(np.abs(self.E_ff)**2, axis=1)
+        P_tot_num = np.trapz(np.trapz(np.reshape(E_int, (self.theta.size, self.phi.size)) * np.sin(np.reshape(Theta, (self.theta.size, self.phi.size))), self.theta, axis=0), self.phi, axis=0)
+        directivity = 10*np.log10(4*np.pi*np.amax(E_int)/P_tot_num)
+        if not quiet:
+            print('Directivity: {:.2f} dB'.format(directivity))
+        return directivity
+    
+    def calculate_gain(self, **kwargs):
+        quiet = kwargs.get('quiet', self.quiet)
+        E_int = np.sum(np.abs(self.E_ff)**2, axis=1)
+        U_int = 1/(2*ETA_0) * E_int
+        G = 10*np.log10(4*np.pi*np.amax(U_int))
+        if not quiet:
+            print('Gain: {:.2f} dB'.format(G))
+        return G
+    
+    def calculate_efficiency(self):
+        directivity = self.calculate_directivity(quiet=True)
+        gain = self.calculate_gain(quiet=True)
+        efficiency = 10**((gain - directivity)/10)
+        if not self.quiet:
+            print('Efficiency: {:.2f}%'.format(efficiency*100))
+        return efficiency
+    
+    def calculate_beam_metrics(self, **kwargs):
+        self.bw = self.calculate_beamwidth(**kwargs)
+        self.directivity = self.calculate_directivity()
+        self.gain = self.calculate_gain()
+        self.efficiency = self.calculate_efficiency()

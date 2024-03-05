@@ -114,6 +114,47 @@ class Feed:
 
     def far_field_propagate(self, delta_theta, delta_phi, method='integration'):
         self.compute.far_field_propagate(self, delta_theta, delta_phi, 2*np.pi*self.f/C, method=method)
+
+    def plot_fields(self, ax=None, plot_type='2D', **kwargs):
+        E_int = np.sum(np.abs(self.compute.E_ff)**2, axis=1)
+        E_plot = np.reshape(E_int, (self.compute.theta.size, self.compute.phi.size))
+
+        dB_min = kwargs.get('dB_min', -20)
+        dB_max = kwargs.get('dB_max', 0)
+
+        if plot_type is None:
+            plot_type = '2D'
+        if ax is None:
+            if plot_type=='1D':
+                fig = plt.figure(figsize=(8,8))
+                ax = plt.subplot(111, projection='polar')
+            if plot_type=='2D':
+                fig, ax = plt.subplots(subplot_kw=dict(projection='polar'), figsize=(7,7))
+
+        if plot_type=='1D':
+            phi_beam = kwargs.get('phi_slice', 0)
+            phi_beam = np.radians(phi_beam)
+            phi_indx1 = np.argmin(np.abs(self.compute.phi - phi_beam))
+            phi_indx2 = np.argmin(np.abs(self.compute.phi - (phi_beam+np.pi)))
+            E_plot_1D = np.concatenate((np.flip(E_plot[1:,phi_indx2][:,None]), E_plot[:,phi_indx1][:,None]))
+            ax.plot(np.linspace(-np.pi/2, np.pi/2, E_plot_1D.size), 10*np.log10(E_plot_1D/np.amax(E_plot_1D)))
+            ax.set_thetalim(-np.pi/2, np.pi/2)
+            ax.set_theta_zero_location("N")
+            ax.set_theta_direction(-1)
+            ax.set_ylabel('dB', rotation=0)
+            ax.set_ylim(dB_min, dB_max)
+            ax.yaxis.set_label_coords(0.17, 0.15)
+            ax.set_xlabel(r'$\theta$')
+            ax.xaxis.set_label_coords(0.5, 0.86)
+            ax.set_yticks(np.arange(dB_min, dB_max+10, 10))
+        elif plot_type=='2D':
+            cs = ax.contourf(self.compute.phi, self.compute.theta*180/np.pi, 10*np.log10(E_plot/np.amax(E_plot)), 
+                        np.linspace(dB_min, dB_max, 100), 
+                        cmap=plt.cm.hot_r)
+            ax.grid(True)
+            ax.set_rlabel_position(135)
+            fig.colorbar(cs, ticks=np.linspace(dB_min, dB_max, 7))
+            ax.set_xlabel('$\phi$')
         
     def plot(self, ax=None, plot_type='2D', **kwargs):
         L_ap = np.maximum(self.x.max() - self.x.min(), self.y.max() - self.y.min())
