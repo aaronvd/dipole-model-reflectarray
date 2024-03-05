@@ -17,7 +17,7 @@ class Element:
         lattice_vectors: 1x3 or 2x3 array of lattice vectors (default: np.array([[0,1,0]]))
     '''
 
-    def __init__(self, lattice_vectors=None, f=None, alpha=None, filepath=None, f0=None, **kwargs):
+    def __init__(self, lattice_vectors=None, f=None, alpha=None, filepath=None, f0=None, normalize=False, **kwargs):
         self.quiet = kwargs.get('quiet', False)
 
         self.lattice_vectors = lattice_vectors
@@ -52,6 +52,8 @@ class Element:
             omega_0 = 2*np.pi * self.f0
             Gamma = omega / self.Q
             self.alpha = (self.F * omega**2) / (omega_0**2 - omega**2 + 1j*Gamma*omega)
+        if normalize:
+            self.alpha = self.alpha / np.max(np.abs(self.alpha))
 
     def plot(self, plot_dict=None):
         if plot_dict is None:

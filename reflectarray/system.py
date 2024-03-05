@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib import collections  as mc
 import scipy.constants
 from reflectarray import toolbox as tb
 from reflectarray.compute import Compute
@@ -86,15 +87,29 @@ class System:
             coeff = -1j*delta_x*delta_y/(2*np.pi*self.f*MU_0) * (1/np.sum(self.H_t * self.reflectarray.element.lattice_vectors[i,None,:], 1))
             self.alpha_desired[i,:] = coeff * (term1 + term2)
 
-    def map_polarizabilities(self, mapping='ideal'):
+    def map_polarizabilities(self, mapping='ideal', normalize=True, scale=1):
+        self.alpha_library = np.copy(self.reflectarray.element.alpha)
+        self.alpha_library = (1 - self.R12_tilda) * self.alpha_library        # accounts for image dipole
+        if self.reflectarray.element.element_type == 'patch':
+            self.alpha_library = 2 * self.alpha_library                       # accounts for patch array factor in the limit of an infinitesimal patch
+        if normalize:
+            self.alpha_library = self.alpha_library / np.max(np.abs(self.alpha_library)) * np.max(np.abs(self.alpha_desired)) * scale
+        
         if mapping == 'ideal':
             self.alpha = self.alpha_desired
         if mapping == 'euclidean':
-            pass
+            self.alpha_constrained_index = np.empty(self.alpha_desired.shape, dtype=int)
+            alpha_constrained = np.empty(self.alpha_desired.shape, dtype=np.complex64)
+            for i in range(self.reflectarray.element.lattice_vectors.shape[0]):
+                self.alpha_constrained_index[i,:] = np.argmin(np.sqrt(np.abs(np.real(self.alpha_desired[i,:,None]) - np.real(self.alpha_library[None,:]))**2 +
+                                            np.abs(np.imag(self.alpha_desired[i,:,None]) - np.imag(self.alpha_library[None,:]))**2), axis=1)
+                alpha_constrained[i,:] = self.reflectarray.element.alpha[self.alpha_constrained_index[i,:]]
+
+            self.alpha = alpha_constrained
         if mapping == 'phase_threshold':
             pass
     
-    def design(self, theta_beam, phi_beam, H_polarization=[0,1,0], R_far=10, mapping='ideal'):
+    def design(self, theta_beam, phi_beam, H_polarization=[0,1,0], R_far=10, mapping='ideal', normalize=True, scale=1):
         if not self.quiet:
             print('Computing feed fields...')
         self.compute_feed_fields()
@@ -112,7 +127,7 @@ class System:
         
         if not self.quiet:
             print('Computing constrained polarizabilities...')
-        self.map_polarizabilities(mapping=mapping)
+        self.map_polarizabilities(mapping=mapping, normalize=normalize, scale=scale)
 
     def propagate(self, delta_theta, delta_phi, method='integration'):
         delta_x = self.reflectarray.x[1] - self.reflectarray.x[0]
@@ -127,6 +142,27 @@ class System:
 
     def calculate_beam_metrics(self, **kwargs):
         self.compute.calculate_beam_metrics(**kwargs)
+
+    def plot_mapping(self, ax=None, lattice_index=0, scale=1):
+
+        if ax is None:
+            _, ax = plt.subplots(1, 1, figsize=(5,5))
+        
+        x1 = np.real(self.alpha_desired[lattice_index,:])
+        y1 = np.imag(self.alpha_desired[lattice_index,:])
+        x2 = np.real(self.alpha_library[self.alpha_constrained_index[lattice_index,:]])
+        y2 = np.imag(self.alpha_library[self.alpha_constrained_index[lattice_index,:]])
+        
+        ax.scatter(x1, y1, label='Ideal')
+        ax.scatter(x2, y2, label='Constrained')
+        lines = np.transpose(np.array([(x1, y1), (x2, y2)]), (2,0,1))
+        lc = mc.LineCollection(lines, linewidths=.3, colors='black')
+        ax.add_collection(lc)
+        ax.set_xlim(scale*np.amin(np.real(self.alpha_desired[lattice_index,:])), scale*np.amax(np.real(self.alpha_desired[lattice_index,:])))
+        ax.set_ylim(scale*np.amin(np.imag(self.alpha_desired[lattice_index,:])), scale*np.amax(np.imag(self.alpha_desired[lattice_index,:])))
+        ax.set_xlabel(r'Re{$\alpha$}')
+        ax.set_ylabel(r'Im{$\alpha$}')
+        plt.legend(frameon=False, loc='lower right')
 
     def plot_fields(self, ax=None, plot_type='2D', **kwargs):
         E_int = np.sum(np.abs(self.compute.E_ff)**2, axis=1)
