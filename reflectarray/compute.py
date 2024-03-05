@@ -11,6 +11,9 @@ ETA_0 = np.sqrt(MU_0/EPS_0)
 
 mm = 1E-3
 
+### NEED TO GENERALIZE ARRAY FACTOR
+### CURRENTLY ONLY VALID FOR PATCH EXCITED BY MAGNETIC FIELD ALONG Y DIRECTION
+
 class Compute:
 
     def __init__(self, quiet=False):
@@ -70,6 +73,7 @@ class Compute:
             else:
                 x_source = source.x
                 y_source = source.y
+
         else:
             x_source = source.x
             y_source = source.y
@@ -125,10 +129,15 @@ class Compute:
                 L_theta = 0
                 L_phi = 0
 
+            self.AF = 1
+            if source.__module__.split('.')[-1] == 'reflectarray':
+                if source.element.element_type == 'patch':
+                    self.AF = (1 - source.R12_tilda) * 2 * np.cos(k*source.element.W/2 * np.sin(Theta)*np.cos(Phi))
+
             R_far = 1
 
-            E_theta = -(1j*k*np.exp(-1j*k*R_far))/(4*np.pi*R_far) * (L_phi + ETA_0 * N_theta)
-            E_phi = (1j*k*np.exp(-1j*k*R_far))/(4*np.pi*R_far) * (L_theta - ETA_0 * N_phi)
+            E_theta = -(1j*k*np.exp(-1j*k*R_far))/(4*np.pi*R_far) * (self.AF * L_phi + ETA_0 * N_theta)
+            E_phi = (1j*k*np.exp(-1j*k*R_far))/(4*np.pi*R_far) * (self.AF * L_theta - ETA_0 * N_phi)
 
             self.E_ff = np.stack((np.zeros_like(E_theta), E_theta, E_phi), axis=1)
 

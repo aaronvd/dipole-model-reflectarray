@@ -60,9 +60,9 @@ class System:
         R12 = (eta_2 - eta_1)/(eta_2 + eta_1)
         R23 = (eta_3 - eta_2)/(eta_3 + eta_2)
 
-        self.R12_tilda = (R12 + R23*np.exp(-2*1j*n2*k*(d2 - d1)))/(1 + R12*R23*np.exp(-2*1j*n2*k*(d2 - d1)))
+        self.reflectarray.R12_tilda = (R12 + R23*np.exp(-2*1j*n2*k*(d2 - d1)))/(1 + R12*R23*np.exp(-2*1j*n2*k*(d2 - d1)))
 
-        self.H_t = (1 - self.R12_tilda) * self.H_feed
+        self.H_t = (1 - self.reflectarray.R12_tilda) * self.H_feed
 
     def compute_polarizabilities(self, theta_beam, phi_beam, H_polarization=[0,1,0], R_far=10):
         delta_x = self.reflectarray.x[1] - self.reflectarray.x[0]
@@ -89,7 +89,7 @@ class System:
 
     def map_polarizabilities(self, mapping='ideal', normalize=True, scale=1):
         self.alpha_library = np.copy(self.reflectarray.element.alpha)
-        self.alpha_library = (1 - self.R12_tilda) * self.alpha_library        # accounts for image dipole
+        self.alpha_library = (1 - self.reflectarray.R12_tilda) * self.alpha_library        # accounts for image dipole
         if self.reflectarray.element.element_type == 'patch':
             self.alpha_library = 2 * self.alpha_library                       # accounts for patch array factor in the limit of an infinitesimal patch
         if normalize:
@@ -106,8 +106,15 @@ class System:
                 alpha_constrained[i,:] = self.reflectarray.element.alpha[self.alpha_constrained_index[i,:]]
 
             self.alpha = alpha_constrained
-        if mapping == 'phase_threshold':
-            pass
+        
+        if mapping == 'phase':
+            self.alpha_constrained_index = np.empty(self.alpha_desired.shape, dtype=int)
+            alpha_constrained = np.empty(self.alpha_desired.shape, dtype=np.complex64)
+            for i in range(self.reflectarray.element.lattice_vectors.shape[0]):
+                self.alpha_constrained_index[i,:] = np.argmin(np.sqrt(np.abs(np.angle(self.alpha_desired[i,:,None]) - np.angle(self.alpha_library[None,:]))**2), axis=1)
+                alpha_constrained[i,:] = self.reflectarray.element.alpha[self.alpha_constrained_index[i,:]]
+
+            self.alpha = alpha_constrained
     
     def design(self, theta_beam, phi_beam, H_polarization=[0,1,0], R_far=10, mapping='ideal', normalize=True, scale=1):
         if not self.quiet:
