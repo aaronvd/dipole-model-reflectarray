@@ -244,6 +244,7 @@ class PyramidalHorn(Feed):
             U_int = 1/(2*ETA_0) * np.sum(np.abs(self.compute.E_ff)**2, axis=1)
             self.E0 = np.sqrt(gain_linear/(4*np.pi*np.amax(U_int)))
             self.make(**kwargs)
+            self.far_field_propagate(1, 2, method='integration')
 
         self.transform()
 
@@ -261,8 +262,8 @@ class PyramidalHorn(Feed):
         self.r = np.stack((X.flatten(), Y.flatten(), Z.flatten()), axis=1)
         self.N = self.r.shape[0]
 
-        J_ey = -self.E0/ETA_0 * np.cos(np.pi*self.r[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/C))
-        J_mx = self.E0 * np.cos(np.pi*self.r[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/C))
+        J_ey = -self.E0/ETA_0 * np.cos(np.pi*self.r[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/(2*C)))
+        J_mx = self.E0 * np.cos(np.pi*self.r[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/(2*C)))
         self.J_e_origin = np.stack((np.zeros_like(J_ey), J_ey, np.zeros_like(J_ey)), axis=1)
         self.J_m_origin = np.stack((J_mx, np.zeros_like(J_mx), np.zeros_like(J_mx)), axis=1)
         self.J_e = np.copy(self.J_e_origin)

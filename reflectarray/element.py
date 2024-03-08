@@ -88,4 +88,4 @@ class Patch(Element):
         super().__init__(lattice_vectors=lattice_vectors, alpha=alpha, filepath=filepath, f0=f0, **kwargs)
         
         self.element_type = 'patch'
-        self.W = kwargs.get('W', C / (2*self.f))
+        self.W = kwargs.get('W', C / (4*self.f))
