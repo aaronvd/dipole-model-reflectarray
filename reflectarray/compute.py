@@ -37,8 +37,8 @@ class Compute:
             y_source = source.y
         
         if field == 'H':
-            H_A = np.empty(r_target.shape, dtype=np.complex64)
-            H_F = np.empty(r_target.shape, dtype=np.complex64)
+            H_A = np.zeros(r_target.shape, dtype=np.complex64)
+            H_F = np.zeros(r_target.shape, dtype=np.complex64)
             for i in range(r_target.shape[0]):
                 R_vec = r_target[i,:][None,:] - source.r
                 R_norm = np.linalg.norm(R_vec, axis=1, keepdims=True)
@@ -47,16 +47,19 @@ class Compute:
                 G1 = -(1 + 1j*k*R_norm - k**2 * R_norm**2)/(R_norm**3)
                 G2 = (3 + 3*1j*k*R_norm - k**2 * R_norm**2)/(R_norm**5)
                 
-                H_A_integrand = np.reshape((-1/(4*np.pi)) 
-                                * np.cross(R_hat, source.J_e, axisa=1, axisb=1, axisc=1)
-                                * (1 + 1j*k*R_norm)/R_norm**2
-                                * np.exp(-1j*k*R_norm), (x_source.size, y_source.size, 3))
-                H_F_integrand = np.reshape((-1j/(4*np.pi*k*ETA_0))
-                                        * (G1 * source.J_m + 
-                                            G2 * R_vec * np.sum(R_vec * source.J_m, axis=1, keepdims=True))
-                                        * np.exp(-1j*k*R_norm), (x_source.size, y_source.size, 3))
-                H_A[i,:] = np.trapz(np.trapz(H_A_integrand, x_source, axis=0), y_source, axis=0)
-                H_F[i,:] = np.trapz(np.trapz(H_F_integrand, x_source, axis=0), y_source, axis=0)
+                if source.J_e is not None:
+                    H_A_integrand = np.reshape((-1/(4*np.pi)) 
+                                    * np.cross(R_hat, source.J_e, axisa=1, axisb=1, axisc=1)
+                                    * (1 + 1j*k*R_norm)/R_norm**2
+                                    * np.exp(-1j*k*R_norm), (x_source.size, y_source.size, 3))
+                    H_A[i,:] = np.trapz(np.trapz(H_A_integrand, x_source, axis=0), y_source, axis=0)
+                if source.J_m is not None:
+                    H_F_integrand = np.reshape((-1j/(4*np.pi*k*ETA_0))
+                                            * (G1 * source.J_m + 
+                                                G2 * R_vec * np.sum(R_vec * source.J_m, axis=1, keepdims=True))
+                                            * np.exp(-1j*k*R_norm), (x_source.size, y_source.size, 3))
+                    
+                    H_F[i,:] = np.trapz(np.trapz(H_F_integrand, x_source, axis=0), y_source, axis=0)
                 
             return H_A + H_F
 

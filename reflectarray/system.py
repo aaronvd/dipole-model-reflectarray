@@ -88,6 +88,7 @@ class System:
             self.alpha_desired[i,:] = coeff * (term1 + term2)
 
     def map_polarizabilities(self, mapping='ideal', normalize=True, scale=1):
+        self.mapping = mapping
         self.alpha_library = np.copy(self.reflectarray.element.alpha)
         self.alpha_library = (1 - self.reflectarray.R12_tilda) * self.alpha_library        # accounts for image dipole
         if self.reflectarray.element.element_type == 'patch':
@@ -95,9 +96,9 @@ class System:
         if normalize:
             self.alpha_library = self.alpha_library / np.max(np.abs(self.alpha_library)) * np.max(np.abs(self.alpha_desired)) * scale
         
-        if mapping == 'ideal':
+        if self.mapping == 'ideal':
             self.alpha = self.alpha_desired
-        if mapping == 'euclidean':
+        if self.mapping == 'euclidean':
             self.alpha_constrained_index = np.empty(self.alpha_desired.shape, dtype=int)
             alpha_constrained = np.empty(self.alpha_desired.shape, dtype=np.complex64)
             for i in range(self.reflectarray.element.lattice_vectors.shape[0]):
@@ -107,7 +108,7 @@ class System:
 
             self.alpha = alpha_constrained
         
-        if mapping == 'phase':
+        if self.mapping == 'phase':
             self.alpha_constrained_index = np.empty(self.alpha_desired.shape, dtype=int)
             alpha_constrained = np.empty(self.alpha_desired.shape, dtype=np.complex64)
             for i in range(self.reflectarray.element.lattice_vectors.shape[0]):
@@ -157,14 +158,15 @@ class System:
         
         x1 = np.real(self.alpha_desired[lattice_index,:])
         y1 = np.imag(self.alpha_desired[lattice_index,:])
-        x2 = np.real(self.alpha_library[self.alpha_constrained_index[lattice_index,:]])
-        y2 = np.imag(self.alpha_library[self.alpha_constrained_index[lattice_index,:]])
         
         ax.scatter(x1, y1, label='Ideal')
-        ax.scatter(x2, y2, label='Constrained')
-        lines = np.transpose(np.array([(x1, y1), (x2, y2)]), (2,0,1))
-        lc = mc.LineCollection(lines, linewidths=.3, colors='black')
-        ax.add_collection(lc)
+        if self.mapping is not 'ideal':
+            x2 = np.real(self.alpha_library[self.alpha_constrained_index[lattice_index,:]])
+            y2 = np.imag(self.alpha_library[self.alpha_constrained_index[lattice_index,:]])
+            ax.scatter(x2, y2, label='Constrained')
+            lines = np.transpose(np.array([(x1, y1), (x2, y2)]), (2,0,1))
+            lc = mc.LineCollection(lines, linewidths=.3, colors='black')
+            ax.add_collection(lc)
         ax.set_xlim(scale*np.amin(np.real(self.alpha_desired[lattice_index,:])), scale*np.amax(np.real(self.alpha_desired[lattice_index,:])))
         ax.set_ylim(scale*np.amin(np.imag(self.alpha_desired[lattice_index,:])), scale*np.amax(np.imag(self.alpha_desired[lattice_index,:])))
         ax.set_xlabel(r'Re{$\alpha$}')

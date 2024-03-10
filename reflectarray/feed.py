@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import scipy.constants
+from copy import deepcopy
 from reflectarray import toolbox as tb
 from reflectarray import transformations
 from reflectarray.compute import Compute
@@ -90,8 +91,8 @@ class Feed:
         self.J_m_origin = kwargs.get('J_m', None)
         if (self.J_e_origin is None) and (self.J_m_origin is None):
             self.J_e_origin = np.tile(np.array([[1, 0, 0]]).astype(np.complex128), (self.r_origin.shape[0], 1))
-        self.J_e = np.copy(self.J_e_origin)
-        self.J_m = np.copy(self.J_m_origin)
+        self.J_e = deepcopy(self.J_e_origin)
+        self.J_m = deepcopy(self.J_m_origin)
 
     def transform(self):
         self.r = transformations.rotate_vector(self.r, 180, 'y')         ### flip feed so that it's facing in -z direction
@@ -173,6 +174,8 @@ class Feed:
         plot_dict = {'J_e': np.real(self.J_e), 'J_m': np.real(self.J_m)}
         component_dict = {'x': 0, 'y': 1, 'z': 2}
         plot_value = kwargs.get('plot_value', 'J_e')
+        if (self.J_e is None) and (plot_value == 'J_e'):
+            plot_value = 'J_m'
         component = kwargs.get('component', 'x')
         quiver = kwargs.get('quiver', False)
 
@@ -266,5 +269,5 @@ class PyramidalHorn(Feed):
         J_mx = self.E0 * np.cos(np.pi*self.r[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/(2*C)))
         self.J_e_origin = np.stack((np.zeros_like(J_ey), J_ey, np.zeros_like(J_ey)), axis=1)
         self.J_m_origin = np.stack((J_mx, np.zeros_like(J_mx), np.zeros_like(J_mx)), axis=1)
-        self.J_e = np.copy(self.J_e_origin)
-        self.J_m = np.copy(self.J_m_origin)
+        self.J_e = deepcopy(self.J_e_origin)
+        self.J_m = deepcopy(self.J_m_origin)
