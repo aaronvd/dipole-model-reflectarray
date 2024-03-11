@@ -17,6 +17,10 @@ mm = 1E-3
 class System:
     '''
     Establishes reflectarray system consisting of feed and reflectarray.
+
+    args:
+        reflectarray: Reflectarray instance
+        feed: Element instance
     '''
 
     def __init__(self, reflectarray, feed, **kwargs):

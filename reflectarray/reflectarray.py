@@ -14,7 +14,22 @@ mm = 1E-3
 class Reflectarray:
     '''
     Defines a physical, fixed reflectarray antenna in terms of dipole positions, dipole complex magnitudes, and frequencies.
-    Handles various methods of supplying dipole positions, ultimately converted to (# positions) x 3 array.
+    Handles various methods of supplying dipole positions, ultimately converted to (# positions) x 3 array. Coordinates must be defined on a grid.
+    Operating frequency corresponds to element operating frequency.
+
+    args:
+        element: Element instance defining the reflectarray element.
+        eps_r: relative permittivity of the substrate (default: 1)
+        d: substrate thickness (default: 0.762 mm)
+    kwargs:
+        x: x-coordinates of dipole positions (default: None)
+        y: y-coordinates of dipole positions (default: None)
+        delta_x: x-spacing of dipole positions (default: None)
+        Nx: number of x-dipole positions (default: None)
+        Lx: length of x-dipole positions (default: None)
+        delta_y: y-spacing of dipole positions (default: None)
+        Ny: number of y-dipole positions (default: None)
+        Ly: length of y-dipole positions (default: None)
     '''
 
     def __init__(self, element, eps_r=1, d=0.762*mm, **kwargs):
@@ -81,6 +96,15 @@ class Reflectarray:
         self.deformed = False
 
     def deform(self, mode='cylindrical', **kwargs):
+        '''
+        Deforms the reflectarray surface according to the specified mode (currently only cylindrical).
+
+        args:
+            mode: deformation mode (default: 'cylindrical')
+        kwargs:
+            axis: axis of cylindrical deformation (default: 'x')
+            R_cylinder: radius of cylindrical deformation (default: 10*C/self.f)
+        '''
         self.deformed = True
         self.deform_mode = mode
         

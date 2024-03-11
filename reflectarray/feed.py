@@ -17,9 +17,25 @@ mm = 1E-3
 class Feed:
     '''
     Base class for reflectarray feed. Defaults to point dipole. 
-    Accepts various keyword combinations for defining feed positions.
+    Accepts various keyword combinations for defining grid of feed positions.
     Supply corresponding electric and/or magnetic currents as (N x 3) arrays.
     Approach: define 2D feed antenna centered at origin, and provide offset and rotation vectors.
+
+    args:
+        f: operating frequency. Should agree with element/reflectarray frequency. (default: 10 GHz)
+    kwargs:
+        x: x-coordinates of feed positions (default: None)
+        y: y-coordinates of feed positions (default: None)
+        delta_x: x-spacing of feed positions (default: None)
+        Nx: number of x-feed positions (default: None)
+        Lx: length of x-feed positions (default: None)
+        delta_y: y-spacing of feed positions (default: None)
+        Ny: number of y-feed positions (default: None)
+        Ly: length of y-feed positions (default: None) 
+        J_e: electric current vector (default: np.array([[1, 0, 0]]))  
+        J_m: magnetic current vector (default: None)
+        r_offset: offset vector (default: (0, 0, 10*C/f))
+        rotation: rotation vector (default: (0, 0, 0))
     '''
 
     def __init__(self, f=None, **kwargs):
@@ -78,9 +94,9 @@ class Feed:
                 self.y = np.linspace(-self.Ly/2, self.Ly/2, self.Ny)
         
         if self.x is None:
-            self.x = 0
+            self.x = np.array([0])
         if self.y is None:
-            self.y = 0
+            self.y = np.array([0])
         X, Y = np.meshgrid(self.x, self.y, indexing='ij')
         Z = np.zeros(X.shape)
         
@@ -90,7 +106,7 @@ class Feed:
         self.J_e_origin = kwargs.get('J_e', None)
         self.J_m_origin = kwargs.get('J_m', None)
         if (self.J_e_origin is None) and (self.J_m_origin is None):
-            self.J_e_origin = np.tile(np.array([[1, 0, 0]]).astype(np.complex128), (self.r_origin.shape[0], 1))
+            self.J_e_origin = np.tile(np.array([[1, 0, 0]]).astype(np.complex128), (self.r.shape[0], 1)) * 1E-6
         self.J_e = deepcopy(self.J_e_origin)
         self.J_m = deepcopy(self.J_m_origin)
 

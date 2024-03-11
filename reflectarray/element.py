@@ -11,10 +11,15 @@ MU_0 = scipy.constants.mu_0
 
 class Element:
     '''
-    Defines element for reflectarray construction.
+    Defines element for reflectarray construction. Can provide alpha as numpy array, load from file, or generate according to Lorentzian model.
 
     args:
         lattice_vectors: 1x3 or 2x3 array of lattice vectors (default: np.array([[0,1,0]]))
+        f: operating frequency (default: 10 GHz)
+        alpha: complex vector of element polarizabilities
+        filepath: path to file containing polarizability values
+        f0: resonant frequency vector for Lorentzian model (default: f +/- 10%)
+        normalize: normalize alpha to max value (default: True)
     '''
 
     def __init__(self, lattice_vectors=None, f=None, alpha=None, filepath=None, f0=None, normalize=False, **kwargs):

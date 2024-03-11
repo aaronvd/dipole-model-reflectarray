@@ -1,3 +1,4 @@
+import numpy as np
 from matplotlib import pyplot as plt
 import pickle
 
@@ -28,3 +29,12 @@ def check_array_memory(x):
         print('Array Size: ' + str(round(array_size*1E-6, 3)) + ' MB')
     else:
         print('Array Size: ' + str(round(array_size*1E-9, 3)) + ' GB')
+
+def trapz(integrand, coordinates_list):
+    '''Integrates over non-singleton dimensions of array.'''
+    for coordinates in coordinates_list:
+        if coordinates.size != 1:
+            integrand = np.trapz(integrand, x=coordinates, axis=0)
+        else:
+            integrand = integrand[0,...]
+    return integrand

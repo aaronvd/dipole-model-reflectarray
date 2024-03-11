@@ -15,7 +15,10 @@ mm = 1E-3
 ### CURRENTLY ONLY VALID FOR PATCH EXCITED BY MAGNETIC FIELD ALONG Y DIRECTION
 
 class Compute:
-
+    '''
+    Class for computing near and far field radiation patterns of a reflectarray.
+    Additionally handles calculation of various beam metrics.
+    '''
     def __init__(self, quiet=False):
         self.quiet = quiet
 
@@ -52,14 +55,15 @@ class Compute:
                                     * np.cross(R_hat, source.J_e, axisa=1, axisb=1, axisc=1)
                                     * (1 + 1j*k*R_norm)/R_norm**2
                                     * np.exp(-1j*k*R_norm), (x_source.size, y_source.size, 3))
-                    H_A[i,:] = np.trapz(np.trapz(H_A_integrand, x_source, axis=0), y_source, axis=0)
+                    H_A[i,:] = tb.trapz(H_A_integrand, [x_source, y_source])
+                    # H_A[i,:] = np.trapz(np.trapz(H_A_integrand, x_int, axis=0), y_int, axis=0)
                 if source.J_m is not None:
                     H_F_integrand = np.reshape((-1j/(4*np.pi*k*ETA_0))
                                             * (G1 * source.J_m + 
                                                 G2 * R_vec * np.sum(R_vec * source.J_m, axis=1, keepdims=True))
                                             * np.exp(-1j*k*R_norm), (x_source.size, y_source.size, 3))
-                    
-                    H_F[i,:] = np.trapz(np.trapz(H_F_integrand, x_source, axis=0), y_source, axis=0)
+                    H_F[i,:] = tb.trapz(H_F_integrand, [x_source, y_source])
+                    # H_F[i,:] = np.trapz(np.trapz(H_F_integrand, x_int, axis=0), y_int, axis=0)
                 
             return H_A + H_F
 
@@ -106,9 +110,10 @@ class Compute:
                     integrand_phi = ((-J_e_grid[:,:,0]*np.sin(Phi[i]) + 
                                     J_e_grid[:,:,1]*np.cos(Phi[i])) *
                                     np.reshape(np.exp(1j*np.sum(k_far_vec[i] * source.r, 1)), (x_source.size, y_source.size)))
-                    
-                    N_theta[i] = np.trapz(np.trapz(integrand_theta, x_source, axis=0), y_source, axis=0)
-                    N_phi[i] = np.trapz(np.trapz(integrand_phi, x_source, axis=0), y_source, axis=0)
+                    N_theta[i] = tb.trapz(integrand_theta, [x_source, y_source])
+                    N_phi[i] = tb.trapz(integrand_phi, [x_source, y_source])
+                    # N_theta[i] = np.trapz(np.trapz(integrand_theta, x_int, axis=0), y_int, axis=0)
+                    # N_phi[i] = np.trapz(np.trapz(integrand_phi, x_int, axis=0), y_int, axis=0)
             else:
                 N_theta = 0
                 N_phi = 0
@@ -125,9 +130,10 @@ class Compute:
                     integrand_phi = ((-J_m_grid[:,:,0]*np.sin(Phi[i]) + 
                                     J_m_grid[:,:,1]*np.cos(Phi[i])) *
                                     np.reshape(np.exp(1j*np.sum(k_far_vec[i] * source.r, 1)), (x_source.size, y_source.size)))
-                    
-                    L_theta[i] = np.trapz(np.trapz(integrand_theta, x_source, axis=0), y_source, axis=0)
-                    L_phi[i] = np.trapz(np.trapz(integrand_phi, x_source, axis=0), y_source, axis=0)
+                    L_theta[i] = tb.trapz(integrand_theta, [x_source, y_source])
+                    L_phi[i] = tb.trapz(integrand_phi, [x_source, y_source])
+                    # L_theta[i] = np.trapz(np.trapz(integrand_theta, x_source, axis=0), y_source, axis=0)
+                    # L_phi[i] = np.trapz(np.trapz(integrand_phi, x_source, axis=0), y_source, axis=0)
             else:
                 L_theta = 0
                 L_phi = 0
