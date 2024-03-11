@@ -1,0 +1,13 @@
+Suggested installation:
+
+1. Make new virtual environment. Navigate to desired directory, and in a terminal enter (for example):
+
+	python -m venv reflectarray_environment
+
+2. Activate virtual environment:
+
+	./reflectarray_environment/Scripts/activate
+
+3. Navigate to reflectarray source code directory and install requirements:
+
+	pip install -r requirements.txt
