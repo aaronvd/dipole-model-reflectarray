@@ -164,7 +164,7 @@ class System:
         y1 = np.imag(self.alpha_desired[lattice_index,:])
         
         ax.scatter(x1, y1, label='Ideal')
-        if self.mapping is not 'ideal':
+        if self.mapping != 'ideal':
             x2 = np.real(self.alpha_library[self.alpha_constrained_index[lattice_index,:]])
             y2 = np.imag(self.alpha_library[self.alpha_constrained_index[lattice_index,:]])
             ax.scatter(x2, y2, label='Constrained')
