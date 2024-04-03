@@ -15,24 +15,33 @@ from reflectarray.ga2 import geneticalgorithm as ga
 
 # %matplotlib qt                    # plots in an interactive window
 
-def setup_ga(max_iterations, population_size):
-    global array
-    dimension = 1
-    varbound = np.array([[0.0001, 10]] * dimension)
-    variable_type = 'real' # Can also be "int" or "bool"
-    max_iterations_without_improvement = 10
-    algorithm_param = {'max_num_iteration': max_iterations,
-                       'population_size': population_size,
-                       'mutation_probability': 0.1,
-                       'elit_ratio': 0.01,
-                       'crossover_probability': 0.5,
-                       'parents_portion': 0.3,
-                       'crossover_type': 'uniform',
-                       'max_iteration_without_improv': max_iterations_without_improvement}
-    ga_model = ga(function=fitness_func, dimension=dimension,
-                  variable_type=variable_type, variable_boundaries=varbound,
-                  algorithm_parameters=algorithm_param)
-    return ga_model
+class GeneticAlgorithmSolver:
+    def __init__(self):
+        self.array = None
+        self.ga_model = None
+        self.ga_var_bounds = None
+
+    def setup_ga(self, max_iterations=10, population_size=10):
+        dimension = 1
+        varbound = np.array([[0.0001, 10]] * dimension)
+        variable_type = 'real' # Can also be "int" or "bool"
+        max_iterations_without_improvement = 10
+        algorithm_param = {'max_num_iteration': max_iterations,
+                           'population_size': population_size,
+                           'mutation_probability': 0.1,
+                           'elit_ratio': 0.01,
+                           'crossover_probability': 0.5,
+                           'parents_portion': 0.3,
+                           'crossover_type': 'uniform',
+                           'max_iteration_without_improv': max_iterations_without_improvement}
+        self.ga_model = ga(function=self.fitness_func, dimension=dimension,
+                        variable_type=variable_type, variable_boundaries=varbound,
+                        algorithm_parameters=algorithm_param)
+
+    def fitness_func(self, inputs):
+        feed = create_feed(inputs)
+        system1 = create_and_run_system(self.array, feed)
+        return -system1.compute.directivity
 
 
 def create_feed(z_position):
@@ -53,18 +62,14 @@ def create_feed(z_position):
 
 
 def create_and_run_system(array, feed):
-    system1 = System(array, feed, quiet=True)
+    system1 = System(array, feed)
     system1.design(theta_beam=25, phi_beam=0, mapping='ideal', R_far=10, scale=.5)
-    system1.propagate(delta_theta=2, delta_phi=2 * 90)
+    system1.propagate(delta_theta=1, delta_phi=2 * 90)
     system1.calculate_beam_metrics()
     return system1
 
 
-def fitness_func(inputs):
-    global array
-    feed = create_feed(inputs)
-    system1 = create_and_run_system(array, feed)
-    return -system1.compute.directivity
+
 
 
 C = scipy.constants.c

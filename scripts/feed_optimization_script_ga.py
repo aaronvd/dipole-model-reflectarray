@@ -17,10 +17,10 @@ from reflectarray.ga2 import geneticalgorithm as ga
 
 def setup_ga(max_iterations, population_size):
     global array
-    dimension = 1
-    varbound = np.array([[0.0001, 10]] * dimension)
+    dimension = 3
+    varbound = np.array([[1, 5], [1, 5], [3, 8]])
     variable_type = 'real' # Can also be "int" or "bool"
-    max_iterations_without_improvement = 10
+    max_iterations_without_improvement = 5
     algorithm_param = {'max_num_iteration': max_iterations,
                        'population_size': population_size,
                        'mutation_probability': 0.1,
@@ -31,13 +31,17 @@ def setup_ga(max_iterations, population_size):
                        'max_iteration_without_improv': max_iterations_without_improvement}
     ga_model = ga(function=fitness_func, dimension=dimension,
                   variable_type=variable_type, variable_boundaries=varbound,
-                  algorithm_parameters=algorithm_param)
+                  algorithm_parameters=algorithm_param, convergence_curve=False)
     return ga_model
 
 
-def create_feed(z_position):
-    Lx_ms = 3 * lam
-    Ly_ms = 3 * lam
+def create_feed(inputs):
+    lx = inputs[0]
+    ly = inputs[1]
+    z_position = inputs[2]
+
+    Lx_ms = lx * lam
+    Ly_ms = ly * lam
     delta_x_ms = lam / 2
     delta_y_ms = lam / 2
     x_ms = np.arange(-Lx_ms / 2, Lx_ms / 2 + delta_x_ms, delta_x_ms)
@@ -48,14 +52,14 @@ def create_feed(z_position):
     J_m = np.random.randn(r_ms.shape[0]) + 1j * np.random.randn(r_ms.shape[0])
     J_m = 1 + 0 * J_m
     J_m = np.stack((np.zeros_like(J_m), J_m, np.zeros_like(J_m)), axis=1)
-    feed = Feed(x=x_ms, y=y_ms, J_m=J_m, f=f, rotation=(0, 0, 0), r_offset=(0, 0, z_position[0] * lam))
+    feed = Feed(x=x_ms, y=y_ms, J_m=J_m, f=f, rotation=(0, 0, 0), r_offset=(0, 0, z_position * lam))
     return feed
 
 
 def create_and_run_system(array, feed):
     system1 = System(array, feed, quiet=True)
-    system1.design(theta_beam=25, phi_beam=0, mapping='ideal', R_far=10, scale=.5)
-    system1.propagate(delta_theta=2, delta_phi=2 * 90)
+    system1.design(theta_beam=25, phi_beam=0, mapping='phase', R_far=10, scale=.5)
+    system1.propagate(delta_theta=1, delta_phi=2 * 90)
     system1.calculate_beam_metrics()
     return system1
 
@@ -92,14 +96,23 @@ y = np.arange(-L/2, L/2+delta_y, delta_y)
 
 array = Reflectarray(patch1, x=x, y=y)
 
-ga_model = setup_ga(max_iterations=10, population_size=10)
+ga_model = setup_ga(max_iterations=20, population_size=20)
 ga_model.run()
-print(ga_model.report)
+print('\n', ga_model.output_dict)
+
 solution = ga_model.output_dict['variable']
 feed = create_feed(solution)
 system1 = create_and_run_system(array, feed)
 
-system1.plot_fields(plot_type='1D', phi_slice=0, dB_min=-40)
+ax0 = plt.subplot(121)
+ax0.plot(-np.array(ga_model.report))
+ax0.set_title('Optimization Process')
+ax0.set_xlabel('Iteration')
+ax0.set_ylabel('Reflectarray Directivity (dBi)')
+ax0.grid()
+ax1 = plt.subplot(122, projection='polar')
+system1.plot_fields(plot_type='1D', phi_slice=0, dB_min=-40, ax=ax1)
+ax1.set_title('Resulting Radiation Pattern')
 plt.show()
 
 

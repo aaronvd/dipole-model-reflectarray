@@ -29,6 +29,7 @@ alpha_on = patch_on['a0'][:,0][np.argmin(np.abs(patch_on_f - f))] / 2       # is
 alpha_off = patch_off['a_short'][:,0][np.argmin(np.abs(patch_off_f - f))] / 2
 
 alpha = np.array([alpha_on, alpha_off])
+print(alpha)
 patch1 = element.Patch(f=f, alpha=alpha, lattice_vectors=np.array([[0, 1, 0]]), W=lam/4)
 
 # Second Cell
@@ -62,7 +63,7 @@ feed = Feed(x=x_ms, y=y_ms, J_m=J_m, f=f, rotation=(0, 0, 0), r_offset=(0, 0, 0.
 system1 = System(array, feed)
 
 #
-system1.design(theta_beam=25, phi_beam=0, mapping='ideal', R_far=10, scale=.5)
+system1.design(theta_beam=25, phi_beam=0, mapping='euclidean', R_far=10, scale=.5)
 
 #
 system1.propagate(delta_theta=1, delta_phi=2*90)
