@@ -75,6 +75,8 @@ class Element:
                 axes[i].set_title('Phase')
             elif p == 'complex':
                 axes[i].scatter(np.real(self.alpha), np.imag(self.alpha))
+                axes[i].set_xlabel(r'Real$\left\{\alpha\right\}$')
+                axes[i].set_ylabel(r'Imag$\left\{\alpha\right\}$')
                 axes[i].set_title('Complex')
             elif p == 'real':
                 axes[i].plot(np.real(self.alpha))
