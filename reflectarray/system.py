@@ -222,6 +222,7 @@ class System:
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(projection='3d')
+            ax.axis('equal')
 
         self.reflectarray.plot(ax=ax, plot_type='3D')
         self.feed.plot(ax=ax, plot_type='3D')

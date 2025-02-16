@@ -250,6 +250,8 @@ class PyramidalHorn(Feed):
             if not self.quiet:
                 print('No frequency vector provided, defaulting to 10 GHz')
             self.f = 10E9
+        self.a = kwargs.get('a', 40.13*mm)
+        self.b = kwargs.get('b', 29.2*mm)
 
         self.r_offset = np.array(kwargs.get('r_offset', (0, 0, 10*C/self.f)))
         self.rotation = np.array(kwargs.get('rotation', (0, 0, 0)))
@@ -268,21 +270,19 @@ class PyramidalHorn(Feed):
         self.transform()
 
     def make(self, **kwargs):
-        a = kwargs.get('a', 40.13*mm)
-        b = kwargs.get('b', 29.2*mm)
         rho_1 = kwargs.get('rho_1', 66.09*mm)
         rho_2 = kwargs.get('rho_2', 100.155*mm)
         delta_x = kwargs.get('delta_x', C/(self.f*10))
         delta_y = kwargs.get('delta_y', C/(self.f*10))
-        self.x = np.arange(-a/2, a/2+delta_x, delta_x)
-        self.y = np.arange(-b/2, b/2+delta_y, delta_y)
+        self.x = np.arange(-self.a/2, self.a/2+delta_x, delta_x)
+        self.y = np.arange(-self.b/2, self.b/2+delta_y, delta_y)
         X, Y = np.meshgrid(self.x, self.y, indexing='ij')
         Z = np.zeros_like(X)
         self.r = np.stack((X.flatten(), Y.flatten(), Z.flatten()), axis=1)
         self.N = self.r.shape[0]
 
-        J_ey = -self.E0/ETA_0 * np.cos(np.pi*self.r[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/(2*C)))
-        J_mx = self.E0 * np.cos(np.pi*self.r[:,0]/a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/(2*C)))
+        J_ey = -self.E0/ETA_0 * np.cos(np.pi*self.r[:,0]/self.a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/(2*C)))
+        J_mx = self.E0 * np.cos(np.pi*self.r[:,0]/self.a) * np.exp(-1j*(2*np.pi*self.f*(self.r[:,0]**2/rho_2 + self.r[:,1]**2/rho_1)/(2*C)))
         self.J_e_origin = np.stack((np.zeros_like(J_ey), J_ey, np.zeros_like(J_ey)), axis=1)
         self.J_m_origin = np.stack((J_mx, np.zeros_like(J_mx), np.zeros_like(J_mx)), axis=1)
         self.J_e = deepcopy(self.J_e_origin)
