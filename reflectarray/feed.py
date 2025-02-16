@@ -263,7 +263,7 @@ class PyramidalHorn(Feed):
             gain_linear = 10**(self.gain/10)
             self.far_field_propagate(1, 2, method='integration')
             U_int = 1/(2*ETA_0) * np.sum(np.abs(self.compute.E_ff)**2, axis=1)
-            self.E0 = np.sqrt(gain_linear/(4*np.pi*np.amax(U_int)))
+            self.E0 = np.sqrt(gain_linear/(4*np.pi*np.amax(U_int))) * self.E0
             self.make(**kwargs)
             self.far_field_propagate(1, 2, method='integration')
 
