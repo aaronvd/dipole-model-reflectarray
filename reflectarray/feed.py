@@ -253,19 +253,24 @@ class PyramidalHorn(Feed):
         self.a = kwargs.get('a', 40.13*mm)
         self.b = kwargs.get('b', 29.2*mm)
 
-        self.r_offset = np.array(kwargs.get('r_offset', (0, 0, 10*C/self.f)))
-        self.rotation = np.array(kwargs.get('rotation', (0, 0, 0)))
-
-        self.make(**kwargs)
-
         self.gain = kwargs.get('gain', None)
         if self.gain is not None:
-            gain_linear = 10**(self.gain/10)
-            self.far_field_propagate(1, 2, method='integration')
-            U_int = 1/(2*ETA_0) * np.sum(np.abs(self.compute.E_ff)**2, axis=1)
-            self.E0 = np.sqrt(gain_linear/(4*np.pi*np.amax(U_int))) * self.E0
+            self.r_offset = np.array([0, 0, 0])     ### temporarily set at origin for gain calculation
+            self.rotation = np.array([0, 0, 0])
             self.make(**kwargs)
             self.far_field_propagate(1, 2, method='integration')
+            gain_linear = 10**(self.gain/10)
+            gain_0 = self.compute.calculate_gain(quiet=True)
+            gain_0 = 10**(gain_0/10)
+            self.E0 = np.sqrt(gain_linear/gain_0) * self.E0
+            self.r_offset = np.array(kwargs.get('r_offset', (0, 0, 10*C/self.f)))
+            self.rotation = np.array(kwargs.get('rotation', (0, 0, 0)))
+            self.make(**kwargs)
+            self.far_field_propagate(1, 2, method='integration')
+        else:
+            self.r_offset = np.array(kwargs.get('r_offset', (0, 0, 10*C/self.f)))
+            self.rotation = np.array(kwargs.get('rotation', (0, 0, 0)))
+            self.make(**kwargs)
 
         self.transform()
 
